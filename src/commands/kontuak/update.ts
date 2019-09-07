@@ -1,11 +1,13 @@
-import { Command, flags } from '@oclif/command';
+import * as fs from 'fs';
+import * as globCB from 'glob';
 import * as path from 'path';
-import { promisify } from 'util';
 import YAML from 'yaml';
+import { Command, flags } from '@oclif/command';
+import { promisify } from 'util';
 
-const glob = promisify(require('glob'));
-const readFile = promisify(require('fs').readFile);
-const writeFile = promisify(require('fs').writeFile);
+const glob = promisify(globCB);
+const readFile = promisify(fs.readFile);
+const writeFile = promisify(fs.writeFile);
 
 export default class KontuakUpdate extends Command {
     static description = 'update hledger journals from YAML files';
@@ -16,8 +18,8 @@ export default class KontuakUpdate extends Command {
 
     accounts: object = {};
 
-    async loadAccount(account, path) {
-        let yamls = await glob(`${path}/*.yml`);
+    async loadAccount(account: string, accountPath: string) {
+        let yamls = await glob(`${accountPath}/*.yml`);
 
         yamls = await Promise.all(yamls.map(async (yamlPath) => {
             let fileContent = await readFile(yamlPath, 'utf8');
@@ -58,61 +60,63 @@ export default class KontuakUpdate extends Command {
         }
 
         for (let account in this.accounts) {
-            this.accounts[account] = this.accounts[account].map((entry) => {
-                let lines = [`${entry.date} ${entry.item || ''}`];
-                let isAssert = Object.keys(entry).length === 2 && entry.date && entry.assert;
+            if (this.accounts.hasOwnProperty(account)) {
+                this.accounts[account] = this.accounts[account].map((entry) => {
+                    let lines = [`${entry.date} ${entry.item || ''}`];
+                    let isAssert = Object.keys(entry).length === 2 && entry.date && entry.assert;
 
-                if (entry.ignore) {
-                    return '';
-                }
-
-                if (isAssert) {
-                    // - date: 2019-04-30
-                    //   assert:
-                    //     - { account: 'triodos', amount: 4062.75 }
-
-                    entry.assert.forEach((assert) => {
-                        lines.push(`    ${assert.account}  0 =* ${assert.amount}€`);
-                    });
-                } else {
-                    // Regular entry
-                    if (entry.tags && entry.tags.length > 0) {
-                        let tags = entry.tags.map((tag) => tag + ':');
-                        lines[0] = `${lines[0]} ; ${tags.join(' ')}`;
+                    if (entry.ignore) {
+                        return '';
                     }
 
-                    entry.postings.forEach((posting) => {
-                        let line = [posting.account];
+                    if (isAssert) {
+                        // - date: 2019-04-30
+                        //   assert:
+                        //     - { account: 'triodos', amount: 4062.75 }
 
-                        if ('amount' in posting) {
-                            const hasCurrencySign = /[$€]/.test(posting.amount);
-
-                            line.push('');
-                            line.push(posting.amount + (hasCurrencySign ? '' : '€'));
-
-                            // if ('foreignAmount' in posting) {
-                            //   line.push(`${posting.amount}€ @@ ${posting.foreignCurrency} ${posting.foreignAmount}`)
-                            // } else {
-                            //   line.push(posting.amount + '€')
-                            // }
+                        entry.assert.forEach((assert) => {
+                            lines.push(`    ${assert.account}  0 =* ${assert.amount}€`);
+                        });
+                    } else {
+                        // Regular entry
+                        if (entry.tags && entry.tags.length > 0) {
+                            let tags = entry.tags.map((tag) => tag + ':');
+                            lines[0] = `${lines[0]} ; ${tags.join(' ')}`;
                         }
 
-                        if ('assert' in posting && entry.assert) {
-                            line.push('= ' + posting.assert + '€');
-                        }
+                        entry.postings.forEach((posting) => {
+                            let line = [posting.account];
 
-                        if ('dateValue' in posting) {
-                            line.push('; DATE_VALUE=' + posting.dateValue);
-                        }
+                            if ('amount' in posting) {
+                                const hasCurrencySign = /[$€]/.test(posting.amount);
 
-                        lines.push('    ' + line.join(' '));
-                    });
-                }
+                                line.push('');
+                                line.push(posting.amount + (hasCurrencySign ? '' : '€'));
 
-                return lines.join('\n');
-            }).join('\n\n') + '\n';
+                                // if ('foreignAmount' in posting) {
+                                //   line.push(`${posting.amount}€ @@ ${posting.foreignCurrency} ${posting.foreignAmount}`)
+                                // } else {
+                                //   line.push(posting.amount + '€')
+                                // }
+                            }
 
-            await writeFile(`/Users/doup/Dropbox/@doup/kontuak/journals/${account}.journal`, this.accounts[account]);
+                            if ('assert' in posting && entry.assert) {
+                                line.push('= ' + posting.assert + '€');
+                            }
+
+                            if ('dateValue' in posting) {
+                                line.push('; DATE_VALUE=' + posting.dateValue);
+                            }
+
+                            lines.push('    ' + line.join(' '));
+                        });
+                    }
+
+                    return lines.join('\n');
+                }).join('\n\n') + '\n';
+
+                await writeFile(`/Users/doup/Dropbox/@doup/kontuak/journals/${account}.journal`, this.accounts[account]);
+            }
         }
     }
 }
