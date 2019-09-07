@@ -1,20 +1,20 @@
-import { Command, flags } from '@oclif/command'
+import { Command, flags } from '@oclif/command';
 import * as puppeteer from 'puppeteer';
 
 export default class ScrapeTriodos extends Command {
-    static description = 'download Triodos data'
-    static args = []
+    static description = 'download Triodos data';
+    static args = [];
     static flags = {
         help: flags.help({ char: 'h' }),
-    }
+    };
 
-    accounts: object = {}
+    accounts: object = {};
 
     async run() {
         const browser = await puppeteer.launch({
             // headless: false, // launch headful mode
             // slowMo: 150, // slow down puppeteer script so that it's easier to follow visually
-            defaultViewport: { width: 1200, height: 800 }
+            defaultViewport: { width: 1200, height: 800 },
         });
         const page = await browser.newPage();
         await page.goto('https://www.triodos.es');

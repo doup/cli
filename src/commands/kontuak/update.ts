@@ -1,51 +1,51 @@
-import { Command, flags } from '@oclif/command'
-import * as path from 'path'
-import { promisify } from 'util'
-import YAML from 'yaml'
+import { Command, flags } from '@oclif/command';
+import * as path from 'path';
+import { promisify } from 'util';
+import YAML from 'yaml';
 
-const glob = promisify(require('glob'))
+const glob = promisify(require('glob'));
 const readFile = promisify(require('fs').readFile);
 const writeFile = promisify(require('fs').writeFile);
 
 export default class KontuakUpdate extends Command {
-    static description = 'update hledger journals from YAML files'
-    static args = []
+    static description = 'update hledger journals from YAML files';
+    static args = [];
     static flags = {
         help: flags.help({ char: 'h' }),
-    }
+    };
 
-    accounts: object = {}
+    accounts: object = {};
 
     async loadAccount(account, path) {
-        let yamls = await glob(`${path}/*.yml`)
+        let yamls = await glob(`${path}/*.yml`);
 
-        yamls = await Promise.all(yamls.map(async yamlPath => {
-            let fileContent = await readFile(yamlPath, 'utf8')
+        yamls = await Promise.all(yamls.map(async (yamlPath) => {
+            let fileContent = await readFile(yamlPath, 'utf8');
 
             try {
-                return YAML.parse(fileContent).reverse()
+                return YAML.parse(fileContent).reverse();
             } catch (e) {
-                this.log(yamlPath)
-                throw e
+                this.log(yamlPath);
+                throw e;
             }
-        }))
+        }));
 
-        yamls = yamls.reduce((a, b) => a.concat(b), [])
+        yamls = yamls.reduce((a, b) => a.concat(b), []);
 
         if (!(account in this.accounts)) {
-            this.accounts[account] = []
+            this.accounts[account] = [];
         }
 
-        this.accounts[account] = this.accounts[account].concat(yamls)
+        this.accounts[account] = this.accounts[account].concat(yamls);
     }
 
     async load(year) {
-        let accounts = await glob(`/Users/doup/Dropbox/@doup/kontuak/${year}/*`)
+        let accounts = await glob(`/Users/doup/Dropbox/@doup/kontuak/${year}/*`);
 
-        accounts = await Promise.all(accounts.map(async accountPath => {
-            let account = path.basename(accountPath)
-            return this.loadAccount(account, accountPath)
-        }))
+        accounts = await Promise.all(accounts.map(async (accountPath) => {
+            let account = path.basename(accountPath);
+            return this.loadAccount(account, accountPath);
+        }));
     }
 
     async run() {
@@ -54,13 +54,13 @@ export default class KontuakUpdate extends Command {
         let to = +(new Date().toISOString()).substr(0, 4);
 
         for (let i = from; i < (to + 1); i++) {
-            await this.load(i)
+            await this.load(i);
         }
 
         for (let account in this.accounts) {
-            this.accounts[account] = this.accounts[account].map(entry => {
+            this.accounts[account] = this.accounts[account].map((entry) => {
                 let lines = [`${entry.date} ${entry.item || ''}`];
-                let isAssert = Object.keys(entry).length == 2 && entry.date && entry.assert;
+                let isAssert = Object.keys(entry).length === 2 && entry.date && entry.assert;
 
                 if (entry.ignore) {
                     return '';
@@ -71,17 +71,17 @@ export default class KontuakUpdate extends Command {
                     //   assert:
                     //     - { account: 'triodos', amount: 4062.75 }
 
-                    entry.assert.forEach(assert => {
-                        lines.push(`    ${assert.account}  0 =* ${assert.amount}€`)
+                    entry.assert.forEach((assert) => {
+                        lines.push(`    ${assert.account}  0 =* ${assert.amount}€`);
                     });
                 } else {
                     // Regular entry
                     if (entry.tags && entry.tags.length > 0) {
-                        let tags = entry.tags.map(tag => tag + ':')
-                        lines[0] = `${lines[0]} ; ${tags.join(' ')}`
+                        let tags = entry.tags.map((tag) => tag + ':');
+                        lines[0] = `${lines[0]} ; ${tags.join(' ')}`;
                     }
 
-                    entry.postings.forEach(posting => {
+                    entry.postings.forEach((posting) => {
                         let line = [posting.account];
 
                         if ('amount' in posting) {
@@ -98,21 +98,21 @@ export default class KontuakUpdate extends Command {
                         }
 
                         if ('assert' in posting && entry.assert) {
-                            line.push('= ' + posting.assert + '€')
+                            line.push('= ' + posting.assert + '€');
                         }
 
                         if ('dateValue' in posting) {
-                            line.push('; DATE_VALUE=' + posting.dateValue)
+                            line.push('; DATE_VALUE=' + posting.dateValue);
                         }
 
                         lines.push('    ' + line.join(' '));
-                    })
+                    });
                 }
 
-                return lines.join('\n')
+                return lines.join('\n');
             }).join('\n\n') + '\n';
 
-            await writeFile(`/Users/doup/Dropbox/@doup/kontuak/journals/${account}.journal`, this.accounts[account])
+            await writeFile(`/Users/doup/Dropbox/@doup/kontuak/journals/${account}.journal`, this.accounts[account]);
         }
     }
 }
