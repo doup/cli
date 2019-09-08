@@ -98,6 +98,20 @@ describe('hledger journal helpers', () => {
             expect(generateTransaction(transaction)).to.eql(result);
         });
 
+        it('should skip transactions with `ignore`', () => {
+            const transaction: Transaction = {
+                date: '1984-12-12',
+                ignore: true,
+                item: 'Lorem ipsum dolor sit amet',
+                postings: [
+                    { account: 'triodos', amount: 100 },
+                    { account: 'income:freelance' },
+                ],
+            };
+
+            expect(generateTransaction(transaction)).to.eql('');
+        });
+
         describe('Tags', () => {
             it('should handle one tag', () => {
                 const transaction: Transaction = {

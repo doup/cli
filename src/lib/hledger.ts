@@ -31,6 +31,7 @@ export interface AssertAccount {
 
 export interface Transaction {
     date: string;
+    ignore?: boolean;
     item: string;
     tags?: string[];
     postings: PostingEntry[];
@@ -106,8 +107,13 @@ export function generateAccountAssertion(assertion: AssertAccount): string {
 }
 
 export function generateTransaction(transaction: Transaction): string {
+    const ignoreTransaction = !!transaction.ignore;
     const lines = [];
     let tags = '';
+
+    if (ignoreTransaction) {
+        return '';
+    }
 
     const postingsWithAmounts = (transaction.postings as Posting[])
         .filter((entry) => isPosting(entry))
