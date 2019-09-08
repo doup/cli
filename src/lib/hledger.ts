@@ -134,19 +134,22 @@ export function parseHalfPostings(transaction: Transaction): Transaction {
         .filter((entry) => isPosting(entry))
         .filter((posting) => !!posting.amount);
 
-    if (postingsWithAmounts.length !== 1) {
-        throw new Error(`Half shortcut needs only one posting with amounts. (date=${transaction.date}, item=${transaction.item})`);
-    }
+    if (hasHalfPosting) {
+        if (postingsWithAmounts.length !== 1) {
+            throw new Error(`Half shortcut needs only one posting with amounts.`);
+        }
 
-    if (postingsWithAmounts[0].amount && hasHalfPosting) {
-        const halfPosting = transaction.postings[halfPostingIdx] as PostingHalf;
-        const amount = postingAmountToAmount(postingsWithAmounts[0].amount);
-        amount.total = -(amount.total / 2);
+        // If to make happy TypeScript
+        if (postingsWithAmounts[0].amount) {
+            const halfPosting = transaction.postings[halfPostingIdx] as PostingHalf;
+            const amount = postingAmountToAmount(postingsWithAmounts[0].amount);
+            amount.total = -(amount.total / 2);
 
-        transaction.postings[halfPostingIdx] = {
-            account: halfPosting.half,
-            amount: amount,
-        };
+            transaction.postings[halfPostingIdx] = {
+                account: halfPosting.half,
+                amount: amount,
+            };
+        }
     }
 
     return transaction;

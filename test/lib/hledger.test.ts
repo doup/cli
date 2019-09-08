@@ -91,6 +91,20 @@ describe('hledger journal helpers', () => {
             expect(parseHalfPostings(transaction)).to.eql(result);
         });
 
+        it('should ignore transactions without PostingHalf', () => {
+            const transaction: Transaction = {
+                date: '1984-12-12',
+                item: 'Half postings shortcut',
+                postings: [
+                    { account: 'triodos', amount: 100 },
+                    { account: 'n26', amount: 100 },
+                    { account: 'equity:opening-balance' },
+                ],
+            };
+
+            expect(parseHalfPostings(transaction)).to.eql(transaction);
+        });
+
         it(`should fail if there isn't any entry with amounts`, () => {
             const transaction: Transaction = {
                 date: '1984-12-12',
