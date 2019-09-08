@@ -1,5 +1,3 @@
-import outdent from 'outdent';
-
 export interface Amount {
     total: number;
     currency: string;
@@ -21,12 +19,14 @@ export interface PostingHalf {
 
 type PostingEntry = Posting | PostingHalf;
 
+export interface AccountAssertion {
+    account: string;
+    amount: PostingAmount;
+}
+
 export interface AssertAccount {
     date: string;
-    assert: {
-        account: string;
-        amount: PostingAmount;
-    };
+    assert: AccountAssertion[];
 }
 
 export interface Transaction {
@@ -72,10 +72,13 @@ export function formatPostingAmount(amount: PostingAmount) {
 }
 
 export function generateAccountAssertion(assertion: AssertAccount): string {
-    return outdent`
-    ${assertion.date}
-        ${assertion.assert.account}  0 =* ${formatPostingAmount(assertion.assert.amount)}
-    `;
+    const lines = [assertion.date];
+
+    assertion.assert.forEach((accountAssertion) => {
+        lines.push(`    ${accountAssertion.account}  0 =* ${formatPostingAmount(accountAssertion.amount)}`);
+    });
+
+    return lines.join('\n');
 }
 
 export function generateTransaction(transaction: Transaction): string {
@@ -99,11 +102,11 @@ export function generateTransaction(transaction: Transaction): string {
     (transaction.postings as Posting[]).forEach((entry) => {
         let line = `    ${entry.account}`;
 
-        if (entry.amount) {
+        if ('amount' in entry && typeof entry.amount !== 'undefined') {
             line += `  ${formatPostingAmount(entry.amount)}`;
         }
 
-        if (entry.dateValue) {
+        if ('dateValue' in entry) {
             line += ` ; DATE_VALUE=${entry.dateValue}`;
         }
 
@@ -116,15 +119,21 @@ export function generateTransaction(transaction: Transaction): string {
 export function generateJournal(entries: JournalEntry[]): string {
     return entries.map((entry) => {
         if (isTransaction(entry)) {
-            return generateTransaction(entry);
-        }
-
-        if (isAssertAccount(entry)) {
-            return generateAccountAssertion(entry);
+            try {
+                return generateTransaction(entry);
+            } catch (e) {
+                throw new Error(`${e.message}. Transaction: date=${entry.date}, item=${entry.item}`);
+            }
+        } else if (isAssertAccount(entry)) {
+            try {
+                return generateAccountAssertion(entry);
+            } catch (e) {
+                throw new Error(`${e.message}. AssertAccount: date=${entry.date}`);
+            }
         }
 
         return '';
-    }).join('\n');
+    }).join('\n\n') + '\n';
 }
 
 export function parseHalfPostings(transaction: Transaction): Transaction {
@@ -186,5 +195,5 @@ export function postingAmountToAmount(amount: PostingAmount): Amount {
         }
     }
 
-    throw new Error('Unknown money amount format');
+    throw new Error(`Unknown money amount format: ${amount}`);
 }

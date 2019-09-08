@@ -36,7 +36,6 @@
     "@oclif/plugin-help": "^2.2.1",
     "csv": "^4.0.0",
     "glob": "^7.1.4",
-    "outdent": "^0.7.0",
     "puppeteer": "^1.19.0",
     "tslib": "^1.9.3",
     "yaml": "^1.6.0"
@@ -54,6 +53,7 @@
     "globby": "^8.0.2",
     "mocha": "^5.2.0",
     "nyc": "^13.3.0",
+    "outdent": "^0.7.0",
     "ts-node": "^7.0.1",
     "tslint": "^5.19.0",
     "typescript": "^3.6.2"

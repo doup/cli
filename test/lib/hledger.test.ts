@@ -12,6 +12,7 @@ describe('hledger journal helpers', () => {
         });
 
         it('should convert numbers to Euros', () => {
+            expect(postingAmountToAmount(0)).to.eql({ total: 0, currency: '€' });
             expect(postingAmountToAmount(8)).to.eql({ total: 8, currency: '€' });
             expect(postingAmountToAmount(12.99)).to.eql({ total: 12.99, currency: '€' });
         });
@@ -48,18 +49,42 @@ describe('hledger journal helpers', () => {
             expect(formatAmount({ total: 12.005, currency: '€' })).to.eql('12.01€');
             expect(formatAmount({ total: 12.008, currency: '€' })).to.eql('12.01€');
         });
+
+        it('should format zero', () => {
+            expect(formatAmount({ total: 0, currency: '€' })).to.eql('0.00€');
+        });
     });
 
     describe('generateAccountAssertion', () => {
-        it('should generate an assertion entry', () => {
+        it('should generate an assertion entry (single)', () => {
             const assertion: AssertAccount = {
                 date: '1984-12-12',
-                assert: { account: 'n26', amount: 1234.99 },
+                assert: [
+                    { account: 'n26', amount: 1234.99 },
+                ],
             };
 
             const result = outdent`
                 1984-12-12
                     n26  0 =* 1234.99€
+            `;
+
+            expect(generateAccountAssertion(assertion)).to.eql(result);
+        });
+
+        it('should generate an assertion entry (multiple)', () => {
+            const assertion: AssertAccount = {
+                date: '1984-12-12',
+                assert: [
+                    { account: 'n26', amount: 1234.99 },
+                    { account: 'triodos', amount: 2345 },
+                ],
+            };
+
+            const result = outdent`
+                1984-12-12
+                    n26  0 =* 1234.99€
+                    triodos  0 =* 2345.00€
             `;
 
             expect(generateAccountAssertion(assertion)).to.eql(result);
@@ -148,6 +173,25 @@ describe('hledger journal helpers', () => {
             const result = outdent`
                 1984-12-12 Lorem ipsum dolor sit amet
                     triodos  100.00€
+                    income:freelance
+            `;
+
+            expect(generateTransaction(transaction)).to.eql(result);
+        });
+
+        it('should add posting amount for zero (falsy values)', () => {
+            const transaction: Transaction = {
+                date: '1984-12-12',
+                item: 'Lorem ipsum dolor sit amet',
+                postings: [
+                    { account: 'triodos', amount: 0.00 },
+                    { account: 'income:freelance' },
+                ],
+            };
+
+            const result = outdent`
+                1984-12-12 Lorem ipsum dolor sit amet
+                    triodos  0.00€
                     income:freelance
             `;
 
