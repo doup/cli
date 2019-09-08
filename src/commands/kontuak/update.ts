@@ -1,9 +1,10 @@
 import * as fs from 'fs';
 import * as globCB from 'glob';
 import * as path from 'path';
-import YAML from 'yaml';
+import * as YAML from 'yaml';
 import { Command, flags } from '@oclif/command';
 import { promisify } from 'util';
+import { generateJournal } from '../../lib/hledger';
 
 const glob = promisify(globCB);
 const readFile = promisify(fs.readFile);
@@ -27,7 +28,7 @@ export default class KontuakUpdate extends Command {
             try {
                 return YAML.parse(fileContent).reverse();
             } catch (e) {
-                this.log(yamlPath);
+                this.log(e, yamlPath);
                 throw e;
             }
         }));
@@ -61,61 +62,10 @@ export default class KontuakUpdate extends Command {
 
         for (let account in this.accounts) {
             if (this.accounts.hasOwnProperty(account)) {
-                this.accounts[account] = this.accounts[account].map((entry) => {
-                    let lines = [`${entry.date} ${entry.item || ''}`];
-                    let isAssert = Object.keys(entry).length === 2 && entry.date && entry.assert;
-
-                    if (entry.ignore) {
-                        return '';
-                    }
-
-                    if (isAssert) {
-                        // - date: 2019-04-30
-                        //   assert:
-                        //     - { account: 'triodos', amount: 4062.75 }
-
-                        entry.assert.forEach((assert) => {
-                            lines.push(`    ${assert.account}  0 =* ${assert.amount}€`);
-                        });
-                    } else {
-                        // Regular entry
-                        if (entry.tags && entry.tags.length > 0) {
-                            let tags = entry.tags.map((tag) => tag + ':');
-                            lines[0] = `${lines[0]} ; ${tags.join(' ')}`;
-                        }
-
-                        entry.postings.forEach((posting) => {
-                            let line = [posting.account];
-
-                            if ('amount' in posting) {
-                                const hasCurrencySign = /[$€]/.test(posting.amount);
-
-                                line.push('');
-                                line.push(posting.amount + (hasCurrencySign ? '' : '€'));
-
-                                // if ('foreignAmount' in posting) {
-                                //   line.push(`${posting.amount}€ @@ ${posting.foreignCurrency} ${posting.foreignAmount}`)
-                                // } else {
-                                //   line.push(posting.amount + '€')
-                                // }
-                            }
-
-                            if ('assert' in posting && entry.assert) {
-                                line.push('= ' + posting.assert + '€');
-                            }
-
-                            if ('dateValue' in posting) {
-                                line.push('; DATE_VALUE=' + posting.dateValue);
-                            }
-
-                            lines.push('    ' + line.join(' '));
-                        });
-                    }
-
-                    return lines.join('\n');
-                }).join('\n\n') + '\n';
-
-                await writeFile(`/Users/doup/Dropbox/@doup/kontuak/journals/${account}.journal`, this.accounts[account]);
+                await writeFile(
+                    `/Users/doup/Dropbox/@doup/kontuak/journals/${account}.journal`,
+                    generateJournal(this.accounts[account]),
+                );
             }
         }
     }
