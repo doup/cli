@@ -46,11 +46,14 @@ export default class ImportTriodos extends Command {
                 let dateValue = entry.date !== entry.dateValue ? `, dateValue: ${entry.dateValue}` : '';
                 let account = args.account === 'current' ? 'triodos:cash' : 'savings';
                 let category = `${type}:???`;
+                let extraPosting: string[] = [];
+                let out = [];
 
                 if (entry.item.indexOf('R.E.AUTONOMOS') !== -1) {
                     account = 'triodos:taxes';
                     category = 'expenses:freelance:autonomo';
                 } else if (entry.item.indexOf('RECIBO Som Energia') !== -1) {
+                    extraPosting.push(`    - { half: 'cris:home:utilities' }`);
                     category = 'expenses:home:electricity';
                 } else if (
                     entry.item.indexOf('IMPUESTO MOD.130') !== -1 ||
@@ -67,8 +70,10 @@ export default class ImportTriodos extends Command {
                 } else if (entry.item.indexOf('RECIBO PARWING') !== -1) {
                     category = 'expenses:home:rent';
                 } else if (entry.item.indexOf('RECIBO AIGUES DE BARCELONA') !== -1) {
+                    extraPosting.push(`    - { half: 'cris:home:utilities' }`);
                     category = 'expenses:home:water';
                 } else if (entry.item.indexOf('RECIBO Naturgy') !== -1) {
+                    extraPosting.push(`    - { half: 'cris:home:utilities' }`);
                     category = 'expenses:home:gas';
                 } else if (entry.item.indexOf('TRANSF DE Zemantics OU Invoice') !== -1) {
                     category = 'income:freelance:mobile-jazz';
@@ -82,13 +87,16 @@ export default class ImportTriodos extends Command {
                     category = 'income:interest:bank';
                 }
 
-                return [
-                    `- date: ${entry.date}`,
-                    `  item: '${entry.item}'`,
-                    '  postings:',
-                    `    - { account: '${account}', amount: ${entry.amount}, assert: ${entry.total}${dateValue} }`,
-                    `    - { account: '${category}' }`,
-                ].join('\n');
+                out.push(`- date: ${entry.date}`);
+                out.push(`  item: '${entry.item}'`);
+                out.push('  postings:');
+                out.push(`    - { account: '${account}', amount: ${entry.amount}${dateValue} }`);
+
+                extraPosting.forEach((posting) => out.push(posting));
+
+                out.push(`    - { account: '${category}' }`);
+
+                return out.join('\n');
             }).join('\n\n');
 
             // Save YAML file

@@ -33,7 +33,7 @@ export default class ImportN26 extends Command {
             entries.reverse();
 
             // Add assertion with the Sum Total
-            entries[0].assert = entries.reduce((sum, entry) => sum + parseInt(entry.amount * 100, 10), 0) / 100;
+            // entries[0].assert = entries.reduce((sum, entry) => sum + parseInt(entry.amount * 100, 10), 0) / 100;
 
             // Generate YAML
             let yml = entries.map((entry) => {
@@ -50,10 +50,10 @@ export default class ImportN26 extends Command {
                     posting.push(`foreignCurrency: ${entry.foreignCurrency}`);
                 }
 
-                if (entry.assert) {
-                    lines.push('  assert: true');
-                    posting.push(`assert: ${entry.assert}`);
-                }
+                // if (entry.assert) {
+                //     lines.push('  assert: true');
+                //     posting.push(`assert: ${entry.assert}`);
+                // }
 
                 if (entry.category === 'ATM' && entry.amount < 0) {
                     account = 'expenses:cash';
