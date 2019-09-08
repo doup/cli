@@ -1,37 +1,44 @@
 import outdent from 'outdent';
 import { expect } from 'chai';
-import { currencyPostingAmountToAmount, formatAmount, generateAccountAssertion, generateTransaction, AssertAccount, Transaction } from '../../src/lib/hledger';
+import { postingAmountToAmount, formatAmount, generateAccountAssertion, generateTransaction, AssertAccount, Transaction, parseHalfPostings } from '../../src/lib/hledger';
 
 describe('hledger journal helpers', () => {
-    describe('currencyAmountToCurrency', () => {
+    describe('postingAmountToAmount', () => {
+        it('should just return Amount types as they are', () => {
+            // Euroz Dollaz Yeniz
+            expect(postingAmountToAmount({ total: 8, currency: '€' })).to.eql({ total: 8, currency: '€' });
+            expect(postingAmountToAmount({ total: 10, currency: '$' })).to.eql({ total: 10, currency: '$' });
+            expect(postingAmountToAmount({ total: -25, currency: '¥' })).to.eql({ total: -25, currency: '¥' });
+        });
+
         it('should convert numbers to Euros', () => {
-            expect(currencyPostingAmountToAmount(8)).to.eql({ total: 8, currency: '€' });
-            expect(currencyPostingAmountToAmount(12.99)).to.eql({ total: 12.99, currency: '€' });
+            expect(postingAmountToAmount(8)).to.eql({ total: 8, currency: '€' });
+            expect(postingAmountToAmount(12.99)).to.eql({ total: 12.99, currency: '€' });
         });
 
         it('should convert numeric strings to Euros', () => {
-            expect(currencyPostingAmountToAmount('8')).to.eql({ total: 8, currency: '€' });
-            expect(currencyPostingAmountToAmount('12.99')).to.eql({ total: 12.99, currency: '€' });
+            expect(postingAmountToAmount('8')).to.eql({ total: 8, currency: '€' });
+            expect(postingAmountToAmount('12.99')).to.eql({ total: 12.99, currency: '€' });
         });
 
         it('should get currency from the string', () => {
-            expect(currencyPostingAmountToAmount('8VND')).to.eql({ total: 8, currency: 'VND' });
-            expect(currencyPostingAmountToAmount('12.99$')).to.eql({ total: 12.99, currency: '$' });
-            expect(currencyPostingAmountToAmount('¥100')).to.eql({ total: 100, currency: '¥' });
+            expect(postingAmountToAmount('8VND')).to.eql({ total: 8, currency: 'VND' });
+            expect(postingAmountToAmount('12.99$')).to.eql({ total: 12.99, currency: '$' });
+            expect(postingAmountToAmount('¥100')).to.eql({ total: 100, currency: '¥' });
         });
 
         it('should trim spaces from currency strings', () => {
-            expect(currencyPostingAmountToAmount(' 8 VND ')).to.eql({ total: 8, currency: 'VND' });
-            expect(currencyPostingAmountToAmount(' 12.99 $ ')).to.eql({ total: 12.99, currency: '$' });
-            expect(currencyPostingAmountToAmount(' ¥ 100 ')).to.eql({ total: 100, currency: '¥' });
+            expect(postingAmountToAmount(' 8 VND ')).to.eql({ total: 8, currency: 'VND' });
+            expect(postingAmountToAmount(' 12.99 $ ')).to.eql({ total: 12.99, currency: '$' });
+            expect(postingAmountToAmount(' ¥ 100 ')).to.eql({ total: 100, currency: '¥' });
         });
 
         it('should fail if it has multiple currency symbols', () => {
-            expect(() => currencyPostingAmountToAmount('$8VND')).to.throw(Error);
+            expect(() => postingAmountToAmount('$8VND')).to.throw(Error);
         });
     });
 
-    describe('formatCurrency', () => {
+    describe('formatAmount', () => {
         it('should return string representation', () => {
             expect(formatAmount({ total: 12.99, currency: '€' })).to.eql('12.99€');
         });
@@ -56,6 +63,60 @@ describe('hledger journal helpers', () => {
             `;
 
             expect(generateAccountAssertion(assertion)).to.eql(result);
+        });
+    });
+
+    describe('parseHalfPostings', () => {
+        it('should parse half postings to regular posting entries', () => {
+            const transaction: Transaction = {
+                date: '1984-12-12',
+                item: 'Half postings shortcut',
+                postings: [
+                    { account: 'triodos', amount: -100 },
+                    { half: 'owe:joxepo:rent' },
+                    { account: 'expenses:home:rent' },
+                ],
+            };
+
+            const result: Transaction = {
+                date: '1984-12-12',
+                item: 'Half postings shortcut',
+                postings: [
+                    { account: 'triodos', amount: -100 },
+                    { account: 'owe:joxepo:rent', amount: { total: 50, currency: '€' } },
+                    { account: 'expenses:home:rent' },
+                ],
+            };
+
+            expect(parseHalfPostings(transaction)).to.eql(result);
+        });
+
+        it(`should fail if there isn't any entry with amounts`, () => {
+            const transaction: Transaction = {
+                date: '1984-12-12',
+                item: 'Half postings shortcut',
+                postings: [
+                    { account: 'triodos' },
+                    { half: 'owe:joxepo:rent' },
+                    { account: 'expenses:home:rent' },
+                ],
+            };
+
+            expect(() => parseHalfPostings(transaction)).to.throw(Error);
+        });
+
+        it(`should fail if there are more than one entries with amounts`, () => {
+            const transaction: Transaction = {
+                date: '1984-12-12',
+                item: 'Half postings shortcut',
+                postings: [
+                    { account: 'triodos', amount: -100 },
+                    { half: 'owe:joxepo:rent' },
+                    { account: 'expenses:home:rent', amount: 20 },
+                ],
+            };
+
+            expect(() => parseHalfPostings(transaction)).to.throw(Error);
         });
     });
 
@@ -110,6 +171,27 @@ describe('hledger journal helpers', () => {
             };
 
             expect(generateTransaction(transaction)).to.eql('');
+        });
+
+        it('should generate half postings from shortcut posting entries', () => {
+            const transaction: Transaction = {
+                date: '1984-12-12',
+                item: 'Half postings shortcut',
+                postings: [
+                    { account: 'triodos', amount: -100 },
+                    { half: 'owe:joxepo:rent' },
+                    { account: 'expenses:home:rent' },
+                ],
+            };
+
+            const result = outdent`
+                1984-12-12 Half postings shortcut
+                    triodos  -100.00€
+                    owe:joxepo:rent  50.00€
+                    expenses:home:rent
+            `;
+
+            expect(generateTransaction(transaction)).to.eql(result);
         });
 
         describe('Tags', () => {
@@ -172,56 +254,5 @@ describe('hledger journal helpers', () => {
 
         //     expect(generateTransaction(transaction)).to.eql(result);
         // });
-
-        describe('Half posting shortcut', () => {
-            it('should generate half postings from shortcut posting entries', () => {
-                const transaction: Transaction = {
-                    date: '1984-12-12',
-                    item: 'Half postings shortcut',
-                    postings: [
-                        { account: 'triodos', amount: -100 },
-                        { half: 'owe:joxepo:rent' },
-                        { account: 'expenses:home:rent' },
-                    ],
-                };
-
-                const result = outdent`
-                    1984-12-12 Half postings shortcut
-                        triodos  -100.00€
-                        owe:joxepo:rent  50.00€
-                        expenses:home:rent
-                `;
-
-                expect(generateTransaction(transaction)).to.eql(result);
-            });
-
-            it(`should fail if there isn't any entry with amounts`, () => {
-                const transaction: Transaction = {
-                    date: '1984-12-12',
-                    item: 'Half postings shortcut',
-                    postings: [
-                        { account: 'triodos' },
-                        { half: 'owe:joxepo:rent' },
-                        { account: 'expenses:home:rent' },
-                    ],
-                };
-
-                expect(() => generateTransaction(transaction)).to.throw(Error);
-            });
-
-            it(`should fail if there are more than one entries with amounts`, () => {
-                const transaction: Transaction = {
-                    date: '1984-12-12',
-                    item: 'Half postings shortcut',
-                    postings: [
-                        { account: 'triodos', amount: -100 },
-                        { half: 'owe:joxepo:rent' },
-                        { account: 'expenses:home:rent', amount: 20 },
-                    ],
-                };
-
-                expect(() => generateTransaction(transaction)).to.throw(Error);
-            });
-        });
     });
 });
