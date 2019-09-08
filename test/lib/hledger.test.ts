@@ -79,6 +79,25 @@ describe('hledger journal helpers', () => {
             expect(generateTransaction(transaction)).to.eql(result);
         });
 
+        it('should show posting dates', () => {
+            const transaction: Transaction = {
+                date: '1984-12-12',
+                item: 'Lorem ipsum dolor sit amet',
+                postings: [
+                    { account: 'triodos', amount: 100, dateValue: '1984-12-13' },
+                    { account: 'income:freelance' },
+                ],
+            };
+
+            const result = outdent`
+                1984-12-12 Lorem ipsum dolor sit amet
+                    triodos  100.00€ ; DATE_VALUE=1984-12-13
+                    income:freelance
+            `;
+
+            expect(generateTransaction(transaction)).to.eql(result);
+        });
+
         describe('Tags', () => {
             it('should handle one tag', () => {
                 const transaction: Transaction = {

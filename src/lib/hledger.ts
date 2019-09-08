@@ -10,6 +10,7 @@ export type PostingAmount = number | string;
 export interface Posting {
     account: string;
     amount?: PostingAmount;
+    dateValue?: string;
     foreignAmount?: number;
     foreignCurrency?: string;
 }
@@ -120,11 +121,17 @@ export function generateTransaction(transaction: Transaction): string {
 
     transaction.postings.forEach((entry) => {
         if (isPosting(entry)) {
+            let line = `    ${entry.account}`;
+
             if (entry.amount) {
-                lines.push(`    ${entry.account}  ${formatPostingAmount(entry.amount)}`);
-            } else {
-                lines.push(`    ${entry.account}`);
+                line += `  ${formatPostingAmount(entry.amount)}`;
             }
+
+            if (entry.dateValue) {
+                line += ` ; DATE_VALUE=${entry.dateValue}`;
+            }
+
+            lines.push(line);
         } else if (isPostingHalf(entry)) {
             if (postingsWithAmounts.length !== 1) {
                 throw new Error(`Half shortcut needs only one posting with amounts. (date=${transaction.date}, item=${transaction.item})`);
