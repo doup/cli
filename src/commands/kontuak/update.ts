@@ -4,11 +4,17 @@ import * as path from 'path';
 import * as YAML from 'yaml';
 import { Command, flags } from '@oclif/command';
 import { promisify } from 'util';
-import { generateJournal } from '../../lib/hledger';
+import { generateJournal, JournalEntry } from '../../lib/hledger';
 
 const glob = promisify(globCB);
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
+
+type Account = [string, JournalEntry[]];
+
+interface Accounts {
+    [key: string]: JournalEntry[];
+}
 
 export default class KontuakUpdate extends Command {
     static description = 'update hledger journals from YAML files';
@@ -17,56 +23,53 @@ export default class KontuakUpdate extends Command {
         help: flags.help({ char: 'h' }),
     };
 
-    accounts: object = {};
+    async getAccounts(): Promise<Account[]> {
+        const from = 2018;
+        const to = +(new Date().toISOString()).substr(0, 4);
+        const accounts: Accounts = {};
 
-    async loadAccount(account: string, accountPath: string) {
-        let yamls = await glob(`${accountPath}/*.yml`);
+        for (let year = from; year <= to; year++) {
+            const yearAccounts = await glob(`/Users/doup/Dropbox/@doup/kontuak/${year}/*`);
 
-        yamls = await Promise.all(yamls.map(async (yamlPath) => {
+            for (let accountPath of yearAccounts) {
+                const account = path.basename(accountPath);
+                const entries = await this.loadYAMLs(accountPath);
+
+                if (!(account in accounts)) {
+                    accounts[account] = [];
+                }
+
+                accounts[account] = accounts[account].concat(entries);
+            }
+        }
+
+        return Object.entries(accounts);
+    }
+
+    async loadYAMLs(accountPath: string): Promise<JournalEntry[]> {
+        const yamls = await glob(`${accountPath}/*.yml`);
+        let entries: JournalEntry[] = [];
+
+        for (let yamlPath of yamls) {
             let fileContent = await readFile(yamlPath, 'utf8');
 
             try {
-                return YAML.parse(fileContent).reverse();
+                entries = entries.concat(YAML.parse(fileContent).reverse());
             } catch (e) {
                 this.log(e, yamlPath);
                 throw e;
             }
-        }));
-
-        yamls = yamls.reduce((a, b) => a.concat(b), []);
-
-        if (!(account in this.accounts)) {
-            this.accounts[account] = [];
         }
 
-        this.accounts[account] = this.accounts[account].concat(yamls);
-    }
-
-    async load(year) {
-        let accounts = await glob(`/Users/doup/Dropbox/@doup/kontuak/${year}/*`);
-
-        accounts = await Promise.all(accounts.map(async (accountPath) => {
-            let account = path.basename(accountPath);
-            return this.loadAccount(account, accountPath);
-        }));
+        return entries;
     }
 
     async run() {
-        // const {args, flags} = this.parse(KontuakUpdate)
-        let from = 2018;
-        let to = +(new Date().toISOString()).substr(0, 4);
-
-        for (let i = from; i < (to + 1); i++) {
-            await this.load(i);
-        }
-
-        for (let account in this.accounts) {
-            if (this.accounts.hasOwnProperty(account)) {
-                await writeFile(
-                    `/Users/doup/Dropbox/@doup/kontuak/journals/${account}.journal`,
-                    generateJournal(this.accounts[account]),
-                );
-            }
+        for (const [account, entries] of await this.getAccounts()) {
+            await writeFile(
+                `/Users/doup/Dropbox/@doup/kontuak/journals/${account}.journal`,
+                generateJournal(entries),
+            );
         }
     }
 }
