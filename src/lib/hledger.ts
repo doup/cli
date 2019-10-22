@@ -64,7 +64,7 @@ function isNumeric(num: any) {
 }
 
 export function formatAmount(currency: Amount) {
-    return `${currency.total.toFixed(2)}${currency.currency}`;
+    return `${currency.total}${currency.currency}`;
 }
 
 export function formatPostingAmount(amount: PostingAmount) {
@@ -148,11 +148,12 @@ export function parseHalfPostings(transaction: Transaction): Transaction {
             throw new Error(`Half shortcut needs only one posting with amounts.`);
         }
 
-        // If to make happy TypeScript
+        // `if` to make happy TypeScript
         if (postingsWithAmounts[0].amount) {
             const halfPosting = transaction.postings[halfPostingIdx] as PostingHalf;
             const amount = postingAmountToAmount(postingsWithAmounts[0].amount);
             amount.total = -(amount.total / 2);
+            amount.total = +amount.total.toFixed(2);
 
             transaction.postings[halfPostingIdx] = {
                 account: halfPosting.half,

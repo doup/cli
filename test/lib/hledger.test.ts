@@ -28,6 +28,10 @@ describe('hledger journal helpers', () => {
             expect(postingAmountToAmount('¥100')).to.eql({ total: 100, currency: '¥' });
         });
 
+        it('should allow multiple decimals', () => {
+            expect(postingAmountToAmount('0.0025BTC')).to.eql({ total: 0.0025, currency: 'BTC' });
+        });
+
         it('should trim spaces from currency strings', () => {
             expect(postingAmountToAmount(' 8 VND ')).to.eql({ total: 8, currency: 'VND' });
             expect(postingAmountToAmount(' 12.99 $ ')).to.eql({ total: 12.99, currency: '$' });
@@ -44,14 +48,12 @@ describe('hledger journal helpers', () => {
             expect(formatAmount({ total: 12.99, currency: '€' })).to.eql('12.99€');
         });
 
-        it('should round to two decimals', () => {
-            expect(formatAmount({ total: 12.002, currency: '€' })).to.eql('12.00€');
-            expect(formatAmount({ total: 12.005, currency: '€' })).to.eql('12.01€');
-            expect(formatAmount({ total: 12.008, currency: '€' })).to.eql('12.01€');
+        it('should format zero', () => {
+            expect(formatAmount({ total: 0, currency: '€' })).to.eql('0€');
         });
 
-        it('should format zero', () => {
-            expect(formatAmount({ total: 0, currency: '€' })).to.eql('0.00€');
+        it('should allow multiple decimals', () => {
+            expect(formatAmount({ total: 0.0025, currency: 'BTC' })).to.eql('0.0025BTC');
         });
     });
 
@@ -84,7 +86,7 @@ describe('hledger journal helpers', () => {
             const result = outdent`
                 1984-12-12
                     n26  0 =* 1234.99€
-                    triodos  0 =* 2345.00€
+                    triodos  0 =* 2345€
             `;
 
             expect(generateAccountAssertion(assertion)).to.eql(result);
@@ -172,7 +174,7 @@ describe('hledger journal helpers', () => {
 
             const result = outdent`
                 1984-12-12 Lorem ipsum dolor sit amet
-                    triodos  100.00€
+                    triodos  100€
                     income:freelance
             `;
 
@@ -191,7 +193,7 @@ describe('hledger journal helpers', () => {
 
             const result = outdent`
                 1984-12-12 Lorem ipsum dolor sit amet
-                    triodos  0.00€
+                    triodos  0€
                     income:freelance
             `;
 
@@ -210,7 +212,7 @@ describe('hledger journal helpers', () => {
 
             const result = outdent`
                 1984-12-12 Lorem ipsum dolor sit amet
-                    triodos  100.00€ ; DATE_VALUE=1984-12-13
+                    triodos  100€ ; DATE_VALUE=1984-12-13
                     income:freelance
             `;
 
@@ -244,8 +246,8 @@ describe('hledger journal helpers', () => {
 
             const result = outdent`
                 1984-12-12 Half postings shortcut
-                    triodos  -100.00€
-                    owe:joxepo:rent  50.00€
+                    triodos  -100€
+                    owe:joxepo:rent  50€
                     expenses:home:rent
             `;
 
@@ -266,7 +268,7 @@ describe('hledger journal helpers', () => {
 
                 const result = outdent`
                     1984-12-12 Lorem ipsum dolor sit amet ; a-tag:
-                        triodos  100.00€
+                        triodos  100€
                         income:freelance
                 `;
 
@@ -286,7 +288,7 @@ describe('hledger journal helpers', () => {
 
                 const result = outdent`
                     1984-12-12 Lorem ipsum dolor sit amet ; tag-one: tag-two:
-                        triodos  100.00€
+                        triodos  100€
                         income:freelance
                 `;
 
