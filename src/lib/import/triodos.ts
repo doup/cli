@@ -1,5 +1,5 @@
 import * as parse from 'csv-parse';
-import { Transaction } from '../hledger';
+import { Transaction } from '../types';
 
 interface TriodosCSVRow {
     date: string;
