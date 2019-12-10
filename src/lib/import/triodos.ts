@@ -29,8 +29,6 @@ export function getTransactions(fromAccount: string, csv: string): Promise<Trans
                     const isExpense = amount < 0;
                     const account = isExpense ? 'expenses:???' : 'income:???';
 
-                    delete (entry as any)._;
-
                     return {
                         date,
                         item: entry.item,
@@ -44,7 +42,3 @@ export function getTransactions(fromAccount: string, csv: string): Promise<Trans
         });
     });
 }
-
-// export function getTransactions(csv: string) {
-
-// }

@@ -17,7 +17,7 @@ export interface PostingHalf {
     half: string;
 }
 
-type PostingEntry = Posting | PostingHalf;
+export type PostingEntry = Posting | PostingHalf;
 
 export interface AccountAssertion {
     account: string;

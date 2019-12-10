@@ -1,6 +1,7 @@
 import outdent from 'outdent';
 import { expect } from 'chai';
-import { postingAmountToAmount, formatAmount, generateAccountAssertion, generateTransaction, AssertAccount, Transaction, parseHalfPostings } from '../../src/lib/hledger';
+import { postingAmountToAmount, formatAmount, generateAccountAssertion, generateTransaction, parseHalfPostings } from '../../src/lib/hledger';
+import { AssertAccount, Transaction } from '../../src/lib/types';
 
 describe('hledger journal helpers', () => {
     describe('postingAmountToAmount', () => {
