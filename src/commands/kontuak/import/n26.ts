@@ -1,8 +1,11 @@
 import { Command, flags } from '@oclif/command';
-import * as parse from 'csv-parse';
 import * as fs from 'fs';
+import * as YAML from 'yaml';
 import { join } from 'path';
 import { promisify } from 'util';
+import { getYAML } from '../../../lib/yaml';
+import { getTransactions } from '../../../lib/import/n26';
+import { Categorizer } from '../../../lib/categorizer';
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -22,76 +25,16 @@ export default class ImportN26 extends Command {
         const { args } = this.parse(ImportN26);
         const filePath = join(process.cwd(), args.file);
         const fileContent = await readFile(filePath, 'utf8');
-        const csvOptions = {
-            columns: ['date', 'payee', '_', 'type', 'item', 'category', 'amount', 'foreignAmount', 'foreignCurrency', 'exchangeRate'],
-            delimiter: ',',
-            from: 2, // Ignore first row
-        };
+        const transactions = await getTransactions(fileContent);
+        const rules = YAML.parse(await readFile('/Users/doup/Dropbox/@doup/kontuak/category-rules.yml', 'utf8'));
+        const categorizer = new Categorizer(rules);
+        const yml = getYAML(transactions.map(tr => categorizer.categorize(tr)));
 
-        parse(fileContent, csvOptions, async (_, entries) => {
-            // Reverse, most recent up
-            entries.reverse();
+        // Save YAML file
+        const year = transactions[0].date.substr(0, 4);
+        const month = transactions[0].date.substr(5, 2);
+        const outPath = `/Users/doup/Dropbox/@doup/kontuak/${year}/n26-current/${month}-tmp.yml`;
 
-            // Add assertion with the Sum Total
-            // entries[0].assert = entries.reduce((sum, entry) => sum + parseInt(entry.amount * 100, 10), 0) / 100;
-
-            // Generate YAML
-            let yml = entries.map((entry) => {
-                let account;
-                let item = entry.item ? entry.item : `${entry.payee} ${entry.type} (${entry.category})`;
-                let posting = ["account: 'n26'", `amount: ${entry.amount}`];
-                let lines = [
-                    `- date: ${entry.date}`,
-                    `  item: '${item}'`,
-                ];
-
-                if (entry.foreignAmount !== '' && entry.foreignCurrency !== 'EUR') {
-                    posting.push(`foreignAmount: ${entry.foreignAmount}`);
-                    posting.push(`foreignCurrency: ${entry.foreignCurrency}`);
-                }
-
-                // if (entry.assert) {
-                //     lines.push('  assert: true');
-                //     posting.push(`assert: ${entry.assert}`);
-                // }
-
-                if (entry.category === 'ATM' && entry.amount < 0) {
-                    account = 'expenses:cash';
-                } else if (entry.item.indexOf('N26 Black Membership') !== -1) {
-                    account = 'expenses:bank:fee';
-                } else if (
-                    entry.item.indexOf('FLOR DE LL POL') !== -1 ||
-                    entry.item.indexOf('LA DIVINA') !== -1 ||
-                    entry.item.indexOf('LA DIVINILLA') !== -1
-                ) {
-                    account = 'expenses:fun:drinks';
-                } else if (
-                    entry.item.indexOf('CASA AMETLLER') !== -1 ||
-                    entry.item.indexOf('CAPRABO') !== -1 ||
-                    entry.item.indexOf('VERITAS') !== -1
-                ) {
-                    account = 'expenses:home:food';
-                } else if (entry.category === 'Bars & Restaurants') {
-                    account = 'expenses:fun:restaurant';
-                } else if (entry.category === 'Food & Groceries') {
-                    account = 'expenses:home:food';
-                } else {
-                    account = (entry.amount >= 0 ? 'income' : 'expenses') + ':???';
-                }
-
-                lines.push('  postings:');
-                lines.push(`    - { ${posting.join(', ')} }`);
-                lines.push(`    - { account: '${account}' }`);
-
-                return lines.join('\n');
-            }).join('\n\n') + '\n';
-
-            // Save YAML file
-            const year = entries[0].date.substr(0, 4);
-            const month = entries[0].date.substr(5, 2);
-            const outPath = `/Users/doup/Dropbox/@doup/kontuak/${year}/n26-current/${month}-tmp.yml`;
-
-            await writeFile(outPath, yml);
-        });
+        await writeFile(outPath, yml);
     }
 }
