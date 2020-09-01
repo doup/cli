@@ -19,10 +19,6 @@ export class TriodosTransactionPuppeteerDataSource implements GetDataSource<stri
     ) {}
 
     async get(query: Query): Promise<string> {
-        throw new MethodNotImplementedError();
-    }
-
-    async getAll(query: Query): Promise<string[]> {
         if (query instanceof TransactionsByMonthQuery) {
             return this.scrape(query);
         }
@@ -30,7 +26,11 @@ export class TriodosTransactionPuppeteerDataSource implements GetDataSource<stri
         throw new QueryNotSupportedError();
     }
 
-    protected async scrape(query: TransactionsByMonthQuery): Promise<string[]> {
+    async getAll(query: Query): Promise<string[]> {
+        throw new MethodNotImplementedError();
+    }
+
+    protected async scrape(query: TransactionsByMonthQuery): Promise<string> {
         async function getElOrFail(selector: string) {
             const el = await page.$(selector);
 
@@ -44,7 +44,7 @@ export class TriodosTransactionPuppeteerDataSource implements GetDataSource<stri
         const browser = await puppeteer.launch({
             ...(this.isDebug ? {
                 headless: false, // launch headful mode
-                slowMo: 150,     // slow down puppeteer script so that it's easier to follow visually
+                slowMo: 50,      // slow down puppeteer script so that it's easier to follow visually
             } : {}),
             defaultViewport: { width: 1200, height: 800 },
         });
@@ -116,7 +116,7 @@ export class TriodosTransactionPuppeteerDataSource implements GetDataSource<stri
                 if (existsSync(file)) {
                     browser.close();
                     clearInterval(checkInterval);
-                    resolve(readFileSync(file, 'utf8').split('\n'));
+                    resolve(readFileSync(file, 'utf8'));
                     rmFolderSync(tmpFolder);
                 } else {
                     tries++;
